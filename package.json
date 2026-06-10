@@ -1,6 +1,6 @@
 {
   "name": "json-inspector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Compare JSON values and locate values in formatted JSON.",
   "type": "module",
   "main": "./dist/index.js",
