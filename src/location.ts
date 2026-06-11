@@ -82,19 +82,29 @@ export function findJsonLocation(
 }
 
 /**
- * Finds the deepest JSON value at a zero-based UTF-16 source offset.
+ * Finds the deepest JSON value at a source position.
  *
  * Object property names and the whitespace between a property name and its
- * value resolve to that property's path. Returns null when the offset is
- * outside the root JSON value.
+ * value resolve to that property's path. The position may be a zero-based
+ * UTF-16 offset or a one-based line and column. Returns null when the position
+ * is invalid or outside the root JSON value.
  */
 export function findJsonPath(
   source: string,
-  offset: number,
+  position: number | JsonLocation,
 ): JsonPathSegment[] | null {
   JSON.parse(source);
 
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) {
+  const offset = typeof position === "number"
+    ? position
+    : locationToOffset(source, position);
+
+  if (
+    offset === null ||
+    !Number.isSafeInteger(offset) ||
+    offset < 0 ||
+    offset > source.length
+  ) {
     return null;
   }
 
@@ -326,6 +336,55 @@ function offsetToLocation(source: string, targetOffset: number): JsonLocation {
     line,
     column: targetOffset - lineStart + 1,
   };
+}
+
+function locationToOffset(
+  source: string,
+  location: JsonLocation,
+): number | null {
+  if (
+    !Number.isSafeInteger(location.line) ||
+    !Number.isSafeInteger(location.column) ||
+    location.line < 1 ||
+    location.column < 1
+  ) {
+    return null;
+  }
+
+  let line = 1;
+  let lineStart = 0;
+
+  for (let offset = 0; offset < source.length && line < location.line; offset += 1) {
+    const character = source[offset];
+
+    if (character === "\r") {
+      if (source[offset + 1] === "\n") {
+        offset += 1;
+      }
+
+      line += 1;
+      lineStart = offset + 1;
+    } else if (character === "\n") {
+      line += 1;
+      lineStart = offset + 1;
+    }
+  }
+
+  if (line !== location.line) {
+    return null;
+  }
+
+  let lineEnd = lineStart;
+  while (
+    lineEnd < source.length &&
+    source[lineEnd] !== "\r" &&
+    source[lineEnd] !== "\n"
+  ) {
+    lineEnd += 1;
+  }
+
+  const offset = lineStart + location.column - 1;
+  return offset <= lineEnd ? offset : null;
 }
 
 function isJsonWhitespace(character: string): boolean {

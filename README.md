@@ -89,12 +89,17 @@ const offset = source.indexOf('"Ada"') + 2;
 
 findJsonPath(source, offset);
 // ["users", 0, "name"]
+
+findJsonPath(source, { line: 4, column: 16 });
+// ["users", 0, "name"]
 ```
 
 Offsets are zero-based UTF-16 positions, matching JavaScript string indexes and
-editor APIs such as CodeMirror. The function returns the deepest JSON path at
-that position, ready to pass to `findJsonLocation`. Positions outside the root
-JSON value return `null`, and invalid JSON throws a `SyntaxError`.
+editor APIs such as CodeMirror. Alternatively, pass the same one-based
+`{ line, column }` shape returned by `findJsonLocation`. The function returns
+the deepest JSON path at that position, ready to pass back to
+`findJsonLocation`. Invalid positions return `null`, and invalid JSON throws a
+`SyntaxError`.
 
 ## Development
 

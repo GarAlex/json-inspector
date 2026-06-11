@@ -14,11 +14,12 @@ export interface JsonLocation {
  */
 export declare function findJsonLocation(source: string, path: readonly JsonPathSegment[]): JsonLocation | null;
 /**
- * Finds the deepest JSON value at a zero-based UTF-16 source offset.
+ * Finds the deepest JSON value at a source position.
  *
  * Object property names and the whitespace between a property name and its
- * value resolve to that property's path. Returns null when the offset is
- * outside the root JSON value.
+ * value resolve to that property's path. The position may be a zero-based
+ * UTF-16 offset or a one-based line and column. Returns null when the position
+ * is invalid or outside the root JSON value.
  */
-export declare function findJsonPath(source: string, offset: number): JsonPathSegment[] | null;
+export declare function findJsonPath(source: string, position: number | JsonLocation): JsonPathSegment[] | null;
 //# sourceMappingURL=location.d.ts.map

@@ -145,11 +145,34 @@ test("round trips paths through locations and offsets", () => {
   for (const path of paths) {
     const location = findJsonLocation(source, path);
     assert.notEqual(location, null);
+    assert.deepEqual(findJsonPath(source, location), path);
     assert.deepEqual(
       findJsonPath(source, locationToOffset(source, location)),
       path,
     );
   }
+});
+
+test("finds paths from line and column positions", () => {
+  assert.deepEqual(findJsonPath(source, { line: 7, column: 20 }), [
+    "user",
+    "roles",
+    1,
+    "label",
+  ]);
+
+  const crlfSource = "{\r\n  \"enabled\": true\r\n}\r\n";
+  assert.deepEqual(findJsonPath(crlfSource, { line: 2, column: 14 }), [
+    "enabled",
+  ]);
+});
+
+test("returns null for invalid line and column positions", () => {
+  assert.equal(findJsonPath(source, { line: 0, column: 1 }), null);
+  assert.equal(findJsonPath(source, { line: 1, column: 0 }), null);
+  assert.equal(findJsonPath(source, { line: 99, column: 1 }), null);
+  assert.equal(findJsonPath(source, { line: 1, column: 99 }), null);
+  assert.equal(findJsonPath(source, { line: 1.5, column: 1 }), null);
 });
 
 test("returns null for offsets outside the JSON value", () => {
