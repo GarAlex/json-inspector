@@ -6,14 +6,13 @@ finding value locations in formatted JSON text.
 ## Install
 
 ```bash
-npm install
-npm run build
+npm install json-compass
 ```
 
 ## Compare JSON
 
 ```ts
-import { compareJson } from "json-inspector";
+import { compareJson } from "json-compass";
 
 const result = compareJson(
   { user: { name: "Ada", active: true } },
@@ -43,11 +42,16 @@ values. Arrays are compared by index.
 ## Command Line
 
 ```bash
-npm run compare -- original.json updated.json
-npm run compare -- --json original.json updated.json
+npx json-compass original.json updated.json
+npx json-compass --json original.json updated.json
 ```
 
-When installed as a package, the command is available as `json-compare`.
+When installed globally, the command is available as `json-compare`:
+
+```bash
+npm install --global json-compass
+json-compare original.json updated.json
+```
 
 Exit codes:
 
@@ -58,7 +62,7 @@ Exit codes:
 ## Find A Value Location
 
 ```ts
-import { findJsonLocation } from "json-inspector";
+import { findJsonLocation } from "json-compass";
 
 const source = `{
   "users": [
@@ -79,6 +83,7 @@ value. Array indexes may be numbers or numeric strings. A missing path returns
 ## Development
 
 ```bash
+npm install
 npm test
 npm run check
 ```

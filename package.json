@@ -1,6 +1,13 @@
 {
-  "name": "json-inspector",
-  "version": "0.1.1",
+  "name": "json-compass",
+  "version": "0.1.2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GarAlex/json-inspector.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Compare JSON values and locate values in formatted JSON.",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +19,7 @@
     }
   },
   "bin": {
-    "json-compare": "./dist/cli.js"
+    "json-compare": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -23,7 +30,8 @@
     "build": "tsc",
     "compare": "node dist/cli.js",
     "test": "npm run build && node --test",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "prepublishOnly": "npm test"
   },
   "engines": {
     "node": ">=18"
