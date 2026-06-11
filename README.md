@@ -80,6 +80,22 @@ Line and column numbers are 1-based and point to the start of the matched JSON
 value. Array indexes may be numbers or numeric strings. A missing path returns
 `null`, and invalid JSON throws a `SyntaxError`.
 
+## Find The Path At A Position
+
+```ts
+import { findJsonPath } from "json-compass";
+
+const offset = source.indexOf('"Ada"') + 2;
+
+findJsonPath(source, offset);
+// ["users", 0, "name"]
+```
+
+Offsets are zero-based UTF-16 positions, matching JavaScript string indexes and
+editor APIs such as CodeMirror. The function returns the deepest JSON path at
+that position, ready to pass to `findJsonLocation`. Positions outside the root
+JSON value return `null`, and invalid JSON throws a `SyntaxError`.
+
 ## Development
 
 ```bash

@@ -11,6 +11,7 @@ export {
 
 export {
   findJsonLocation,
+  findJsonPath,
   type JsonLocation,
   type JsonPathSegment,
 } from "./location.js";

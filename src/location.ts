@@ -7,21 +7,34 @@ export interface JsonLocation {
   column: number;
 }
 
-type LocatedNode =
-  | {
-      kind: "value";
-      offset: number;
-    }
-  | {
-      kind: "array";
-      offset: number;
-      children: LocatedNode[];
-    }
-  | {
-      kind: "object";
-      offset: number;
-      children: Map<string, LocatedNode>;
-    };
+interface LocatedValue {
+  kind: "value";
+  offset: number;
+  end: number;
+}
+
+interface LocatedArray {
+  kind: "array";
+  offset: number;
+  end: number;
+  children: LocatedNode[];
+}
+
+interface LocatedProperty {
+  key: string;
+  offset: number;
+  node: LocatedNode;
+}
+
+interface LocatedObject {
+  kind: "object";
+  offset: number;
+  end: number;
+  children: Map<string, LocatedNode>;
+  properties: LocatedProperty[];
+}
+
+type LocatedNode = LocatedValue | LocatedArray | LocatedObject;
 
 /**
  * Finds the start of a JSON value identified by an object-property/array-index
@@ -68,6 +81,32 @@ export function findJsonLocation(
   return offsetToLocation(source, node.offset);
 }
 
+/**
+ * Finds the deepest JSON value at a zero-based UTF-16 source offset.
+ *
+ * Object property names and the whitespace between a property name and its
+ * value resolve to that property's path. Returns null when the offset is
+ * outside the root JSON value.
+ */
+export function findJsonPath(
+  source: string,
+  offset: number,
+): JsonPathSegment[] | null {
+  JSON.parse(source);
+
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) {
+    return null;
+  }
+
+  const root = new LocationParser(source).parse();
+
+  if (offset < root.offset || offset >= root.end) {
+    return null;
+  }
+
+  return pathAtOffset(root, offset, []);
+}
+
 class LocationParser {
   private offset = 0;
 
@@ -93,30 +132,39 @@ class LocationParser {
 
     if (character === '"') {
       this.parseString();
-      return { kind: "value", offset: start };
+      return { kind: "value", offset: start, end: this.offset };
     }
 
     this.parsePrimitive();
-    return { kind: "value", offset: start };
+    return { kind: "value", offset: start, end: this.offset };
   }
 
   private parseObject(start: number): LocatedNode {
     const children = new Map<string, LocatedNode>();
+    const properties: LocatedProperty[] = [];
     this.offset += 1;
     this.skipWhitespace();
 
     if (this.source[this.offset] === "}") {
       this.offset += 1;
-      return { kind: "object", offset: start, children };
+      return {
+        kind: "object",
+        offset: start,
+        end: this.offset,
+        children,
+        properties,
+      };
     }
 
     while (this.offset < this.source.length) {
+      const propertyOffset = this.offset;
       const key = this.parseString();
       this.skipWhitespace();
       this.offset += 1;
 
       const child = this.parseValue();
       children.set(key, child);
+      properties.push({ key, offset: propertyOffset, node: child });
       this.skipWhitespace();
 
       if (this.source[this.offset] === "}") {
@@ -128,7 +176,13 @@ class LocationParser {
       this.skipWhitespace();
     }
 
-    return { kind: "object", offset: start, children };
+    return {
+      kind: "object",
+      offset: start,
+      end: this.offset,
+      children,
+      properties,
+    };
   }
 
   private parseArray(start: number): LocatedNode {
@@ -138,7 +192,7 @@ class LocationParser {
 
     if (this.source[this.offset] === "]") {
       this.offset += 1;
-      return { kind: "array", offset: start, children };
+      return { kind: "array", offset: start, end: this.offset, children };
     }
 
     while (this.offset < this.source.length) {
@@ -154,7 +208,7 @@ class LocationParser {
       this.skipWhitespace();
     }
 
-    return { kind: "array", offset: start, children };
+    return { kind: "array", offset: start, end: this.offset, children };
   }
 
   private parseString(): string {
@@ -204,6 +258,35 @@ class LocationParser {
       this.offset += 1;
     }
   }
+}
+
+function pathAtOffset(
+  node: LocatedNode,
+  offset: number,
+  path: JsonPathSegment[],
+): JsonPathSegment[] {
+  if (node.kind === "object") {
+    for (const property of node.properties) {
+      if (offset < property.offset || offset >= property.node.end) {
+        continue;
+      }
+
+      const propertyPath = [...path, property.key];
+      return offset >= property.node.offset
+        ? pathAtOffset(property.node, offset, propertyPath)
+        : propertyPath;
+    }
+  } else if (node.kind === "array") {
+    for (let index = 0; index < node.children.length; index += 1) {
+      const child = node.children[index] as LocatedNode;
+
+      if (offset >= child.offset && offset < child.end) {
+        return pathAtOffset(child, offset, [...path, index]);
+      }
+    }
+  }
+
+  return path;
 }
 
 function parseArrayIndex(segment: JsonPathSegment): number | null {

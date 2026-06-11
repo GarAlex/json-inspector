@@ -1,3 +1,3 @@
 export { compareJson, } from "./compare.js";
-export { findJsonLocation, } from "./location.js";
+export { findJsonLocation, findJsonPath, } from "./location.js";
 //# sourceMappingURL=index.js.map

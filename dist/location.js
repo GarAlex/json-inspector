@@ -30,6 +30,24 @@ export function findJsonLocation(source, path) {
     }
     return offsetToLocation(source, node.offset);
 }
+/**
+ * Finds the deepest JSON value at a zero-based UTF-16 source offset.
+ *
+ * Object property names and the whitespace between a property name and its
+ * value resolve to that property's path. Returns null when the offset is
+ * outside the root JSON value.
+ */
+export function findJsonPath(source, offset) {
+    JSON.parse(source);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > source.length) {
+        return null;
+    }
+    const root = new LocationParser(source).parse();
+    if (offset < root.offset || offset >= root.end) {
+        return null;
+    }
+    return pathAtOffset(root, offset, []);
+}
 class LocationParser {
     source;
     offset = 0;
@@ -52,25 +70,34 @@ class LocationParser {
         }
         if (character === '"') {
             this.parseString();
-            return { kind: "value", offset: start };
+            return { kind: "value", offset: start, end: this.offset };
         }
         this.parsePrimitive();
-        return { kind: "value", offset: start };
+        return { kind: "value", offset: start, end: this.offset };
     }
     parseObject(start) {
         const children = new Map();
+        const properties = [];
         this.offset += 1;
         this.skipWhitespace();
         if (this.source[this.offset] === "}") {
             this.offset += 1;
-            return { kind: "object", offset: start, children };
+            return {
+                kind: "object",
+                offset: start,
+                end: this.offset,
+                children,
+                properties,
+            };
         }
         while (this.offset < this.source.length) {
+            const propertyOffset = this.offset;
             const key = this.parseString();
             this.skipWhitespace();
             this.offset += 1;
             const child = this.parseValue();
             children.set(key, child);
+            properties.push({ key, offset: propertyOffset, node: child });
             this.skipWhitespace();
             if (this.source[this.offset] === "}") {
                 this.offset += 1;
@@ -79,7 +106,13 @@ class LocationParser {
             this.offset += 1;
             this.skipWhitespace();
         }
-        return { kind: "object", offset: start, children };
+        return {
+            kind: "object",
+            offset: start,
+            end: this.offset,
+            children,
+            properties,
+        };
     }
     parseArray(start) {
         const children = [];
@@ -87,7 +120,7 @@ class LocationParser {
         this.skipWhitespace();
         if (this.source[this.offset] === "]") {
             this.offset += 1;
-            return { kind: "array", offset: start, children };
+            return { kind: "array", offset: start, end: this.offset, children };
         }
         while (this.offset < this.source.length) {
             children.push(this.parseValue());
@@ -99,7 +132,7 @@ class LocationParser {
             this.offset += 1;
             this.skipWhitespace();
         }
-        return { kind: "array", offset: start, children };
+        return { kind: "array", offset: start, end: this.offset, children };
     }
     parseString() {
         const start = this.offset;
@@ -135,6 +168,28 @@ class LocationParser {
             this.offset += 1;
         }
     }
+}
+function pathAtOffset(node, offset, path) {
+    if (node.kind === "object") {
+        for (const property of node.properties) {
+            if (offset < property.offset || offset >= property.node.end) {
+                continue;
+            }
+            const propertyPath = [...path, property.key];
+            return offset >= property.node.offset
+                ? pathAtOffset(property.node, offset, propertyPath)
+                : propertyPath;
+        }
+    }
+    else if (node.kind === "array") {
+        for (let index = 0; index < node.children.length; index += 1) {
+            const child = node.children[index];
+            if (offset >= child.offset && offset < child.end) {
+                return pathAtOffset(child, offset, [...path, index]);
+            }
+        }
+    }
+    return path;
 }
 function parseArrayIndex(segment) {
     if (typeof segment === "number") {
